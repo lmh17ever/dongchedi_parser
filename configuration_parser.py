@@ -77,7 +77,7 @@ def get_data(url):
                                      ) as names_json:
         config = json.load(config_json)
         names_dict = json.load(names_json)
-        result = ''
+        result = {}
         all_names_parameters = get_html_elements(url)
         for parameter in all_names_parameters:
             parameter_name = get_and_translate_parameter_name(parameter, names_dict)
@@ -87,5 +87,5 @@ def get_data(url):
                 parameter, config['with_empty_parameters'])
             if not parameter_value:
                 continue
-            result += f'{parameter_name}: {parameter_value}\n'
+            result[parameter_name] = parameter_value
         return result

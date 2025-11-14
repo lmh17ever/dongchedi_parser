@@ -189,7 +189,10 @@ class AutoParserApp:
         """Обработка события при нажатии кнопки <<Получить данные>>"""
         url = self.ui.input_entry.get()
         result = get_data(url)
-        self._display_result(str(result))
+        output_text = ''
+        for key, value in result.items():
+            output_text += f'{key}: {value}\n'
+        self._display_result(str(output_text))
 
 
     def _display_result(self, result):
