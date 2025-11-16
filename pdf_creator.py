@@ -66,6 +66,7 @@ class PDFWriter:
         if not Path(images_dir).exists():
             return
         self.c.showPage()
+        self.y_cursor = -1 # Initial value of -1 triggers page break logic on the very first image
         for f in os.listdir(images_dir):
             if not f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                 continue
