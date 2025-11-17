@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, Canvas, VERTICAL
 
 from configuration_parser import get_data
+from pdf_creator import create_pdf
 
 
 class AutoParserApp:
@@ -83,7 +84,8 @@ class AutoParserApp:
         """Создание вкладки для получения данных"""
         tab = self.ui.tabs['get_data']
 
-        input_label = tk.Label(tab, text="Нажимайте Ctrl+V и Ctrl+C со включенной английской раскладкой\nВставьте ссылку:")
+        input_label = tk.Label(tab, text=(
+            "Нажимайте Ctrl+V и Ctrl+C со включенной английской раскладкой\nВставьте ссылку:"))
         input_label.pack(pady=10)
 
         self.ui.input_entry = tk.Entry(tab, width=100)
@@ -188,11 +190,12 @@ class AutoParserApp:
     def parse_page(self):
         """Обработка события при нажатии кнопки <<Получить данные>>"""
         url = self.ui.input_entry.get()
-        result = get_data(url)
+        result = get_data(url).items()
         output_text = ''
-        for key, value in result.items():
+        for key, value in result:
             output_text += f'{key}: {value}\n'
         self._display_result(str(output_text))
+        create_pdf(car_data=result)
 
 
     def _display_result(self, result):

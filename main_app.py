@@ -89,7 +89,7 @@ class CarParserApp:
         try:
             parser = CarParser(queue=self.queue)
             parser.parse_car_page(url)
-            create_pdf()
+            create_pdf(main_app_flag=True)
             self._put("message", "PDF file created!")
 
         except Exception as e:
