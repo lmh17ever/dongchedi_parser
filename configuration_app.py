@@ -190,12 +190,13 @@ class AutoParserApp:
     def parse_page(self):
         """Обработка события при нажатии кнопки <<Получить данные>>"""
         url = self.ui.input_entry.get()
-        result = get_data(url).items()
+        data = get_data(url)
+        print(data)
         output_text = ''
-        for key, value in result:
-            output_text += f'{key}: {value}\n'
+        for parameter in data:
+            output_text += f'{parameter["name"]}: {parameter["value"]}\n'
         self._display_result(str(output_text))
-        create_pdf(car_data=result)
+        create_pdf(car_data=data)
 
 
     def _display_result(self, result):

@@ -33,7 +33,7 @@ DEFAULT_PAGE_SIZE = A4
 
 
 class PDFWriter:
-    """Compact PDF writer with internal cursor."""
+    """Компактный генератор PDF с внутренним курсором"""
 
     def __init__(self, output_pdf: str, page_size=DEFAULT_PAGE_SIZE,
                  margin=DEFAULT_MARGIN):
@@ -45,62 +45,90 @@ class PDFWriter:
         self.font_name = DEFAULT_FONT_NAME
 
     def register_font(self, font_name=DEFAULT_FONT_NAME, font_path=DEFAULT_FONT_PATH):
-        """Register a TrueType font for use in the PDF."""
-        pdfmetrics.registerFont(TTFont(font_name, font_path))
+        """Регистрация TTF-шрифта"""
+        if font_path and os.path.exists(font_path):
+            pdfmetrics.registerFont(TTFont(font_name, font_path))
+            self.font_name = font_name
         self.c.setFont(self.font_name, DEFAULT_FONT_SIZE)
-        self.font_name = font_name
 
     def draw_car_info(self, main_app_flag, car_data, font_size=DEFAULT_FONT_SIZE,
                       line_spacing=DEFAULT_LINE_SPACING):
-        """Draw car title, mileage, and configuration information."""
+        """Вывод заголовка, пробега и характеристик"""
         if main_app_flag:
-            self._draw_text_block(car_data.get("title", "No Title"),
-                                font_size, line_spacing)
+            # Предполагаем, что в car_data есть title и mileage
+            title = car_data.get("title", "Без названия")
+            self._draw_text_block(title, font_size + 4, line_spacing + 2)  # чуть крупнее
+
             mileage = car_data.get("mileage", 0)
-            self._draw_text_block(f"Пробег: {int(mileage*10000)} км",
+            self._draw_text_block(f"Пробег: {int(mileage * 10000):,} км",
                                 font_size, line_spacing)
-            configuration_dict = car_data.get("configuration_info", {}).items()
+
+            # Характеристики теперь ожидаются в виде списка словарей
+            config_items = car_data.get("configuration_info", [])
         else:
-            configuration_dict = car_data
-        for k, v in configuration_dict:
-            self._draw_text_block(f"{k}: {v}", font_size, line_spacing)
+            # когда main_app_flag=False → car_data уже является списком характеристик
+            config_items = car_data
+
+        # Выводим все пары name: value
+        for item in config_items:
+            name = item.get("name", "—")
+            value = item.get("value", "—")
+            self._draw_text_block(f"{name}: {value}", font_size, line_spacing)
 
     def draw_images_from_dir(self, images_dir="car_data"):
-        """Draw all images from directory, handling page breaks."""
+        """Вставка всех изображений из папки с автоматическим разрывом страниц"""
         if not Path(images_dir).exists():
             return
-        self.y_cursor = -1 # Initial value of -1 triggers page break logic on the very first image
-        for f in os.listdir(images_dir):
-            if not f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
+
+        self.y_cursor = -1  # -1 → принудительный разрыв страницы перед первой картинкой
+
+        for fname in sorted(os.listdir(images_dir)):
+            if not fname.lower().endswith(('.jpg', '.jpeg', '.png', '.webp')):
                 continue
-            img_path = os.path.join(images_dir, f)
-            with Image.open(img_path) as im:
-                w, h = im.size
-                aspect = w / h
-                dh = self.width / aspect
-                if self.y_cursor - dh < 0:
-                    self.c.showPage()
-                    self.y_cursor = self.height - dh
-                self.c.drawImage(img_path, 0, self.y_cursor,
-                                    width=self.width, height=dh)
-                self.y_cursor -= dh + DEFAULT_IMAGE_SPACING
+
+            img_path = os.path.join(images_dir, fname)
+            try:
+                with Image.open(img_path) as im:
+                    w, h = im.size
+                    aspect = w / h
+                    draw_height = self.width / aspect   # сохраняем пропорции
+
+                    if self.y_cursor - draw_height < self.margin * 1.5:
+                        self.c.showPage()
+                        self.y_cursor = self.height - self.margin
+
+                    self.c.drawImage(img_path,
+                                     x=0,
+                                     y=self.y_cursor - draw_height,
+                                     width=self.width,
+                                     height=draw_height,
+                                     preserveAspectRatio=True)
+
+                    self.y_cursor -= draw_height + DEFAULT_IMAGE_SPACING
+
+            except Exception as e:
+                print(f"Ошибка при вставке {fname}: {e}")
 
     def save(self):
-        """Finalize and save PDF."""
-        self.c.showPage()
+        """Завершение и сохранение PDF"""
+        if self.y_cursor < self.height - 10:  # была хоть какая-то информация на странице
+            self.c.showPage()
         self.c.save()
 
     def _draw_text_block(self, text: str, font_size=DEFAULT_FONT_SIZE,
                          line_spacing=DEFAULT_LINE_SPACING):
-        """Draw wrapped text lines at current cursor with page breaks."""
-        wrapped_lines = simpleSplit(
-            text, self.font_name, font_size, self.width - 2 * self.margin
-        )
-        for line in wrapped_lines:
-            if self.y_cursor < self.margin:
+        """Вывод многострочного текста с переносами и разрывом страниц"""
+        self.c.setFont(self.font_name, font_size)
+
+        wrapped = simpleSplit(text, self.font_name, font_size,
+                              self.width - 2 * self.margin)
+
+        for line in wrapped:
+            if self.y_cursor - line_spacing < self.margin:
                 self.c.showPage()
                 self.y_cursor = self.height - self.margin
                 self.c.setFont(self.font_name, font_size)
+
             self.c.drawString(self.margin, self.y_cursor, line)
             self.y_cursor -= line_spacing
 
@@ -108,13 +136,21 @@ class PDFWriter:
 def create_pdf(main_app_flag=False, car_data=None,
                json_path="car_data/info.json", output_pdf="Auto.pdf",
                font_name=DEFAULT_FONT_NAME, font_path=DEFAULT_FONT_PATH):
-    """Create PDF from car JSON."""
+    """Создание PDF из данных автомобиля"""
     writer = PDFWriter(output_pdf)
     writer.register_font(font_name, font_path)
+
     if car_data is None:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            car_data = json.load(f)
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                car_data = json.load(f)
+        except Exception as e:
+            print(f"Ошибка чтения JSON: {e}")
+            return
+
     writer.draw_car_info(main_app_flag, car_data)
+    
     if main_app_flag:
         writer.draw_images_from_dir("car_data")
+        
     writer.save()

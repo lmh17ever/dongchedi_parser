@@ -29,6 +29,8 @@ def get_and_translate_parameter_name(parameter_element, names_dict):
         'label', {'class': 'cell_label__ZtXlw cell_has-wiki__18Gae'})
     if parameter_label:
         parameter_name = parameter_label.get_text()
+        if parameter_name not in names_dict:
+            print(parameter_name)
         if parameter_name in names_dict and names_dict[parameter_name][1]:
             validated_parameter_name = names_dict[parameter_name][0]
             return validated_parameter_name
@@ -66,6 +68,7 @@ def get_validate_and_translate_value(parameter_element, empty_parameters_flag):
             parameter_value += values_translation[validated_value] + ', '
         else:
             parameter_value += validated_value + ', '
+            print(validated_value)
     parameter_value = parameter_value.rstrip(', ')
     return parameter_value
 
@@ -75,17 +78,22 @@ def get_data(url):
     with open('config.json', 'r', encoding='utf-8'
               ) as config_json, open('test_names_translation.json', 'r', encoding='utf-8'
                                      ) as names_json:
-        config = json.load(config_json)
-        names_dict = json.load(names_json)
-        result = {}
-        all_names_parameters = get_html_elements(url)
-        for parameter in all_names_parameters:
-            parameter_name = get_and_translate_parameter_name(parameter, names_dict)
-            if not parameter_name:
-                continue
-            parameter_value = get_validate_and_translate_value(
-                parameter, config['with_empty_parameters'])
-            if not parameter_value:
-                continue
-            result[parameter_name] = parameter_value
-        return result
+        with open("testData.json", "w+", encoding="utf-8") as f:
+            config = json.load(config_json)
+            names_dict = json.load(names_json)
+            result = []
+            all_names_parameters = get_html_elements(url)
+            for parameter in all_names_parameters:
+                parameter_dict = {}
+                parameter_name = get_and_translate_parameter_name(parameter, names_dict)
+                parameter_dict["name"] = parameter_name
+                if not parameter_name:
+                    continue
+                parameter_value = get_validate_and_translate_value(
+                    parameter, config['with_empty_parameters'])
+                parameter_dict["value"] = parameter_value
+                if not parameter_value:
+                    continue
+                result.append(parameter_dict)
+            json.dump(result, f, indent=4, ensure_ascii=False)
+            return result
